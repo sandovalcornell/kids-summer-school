@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Lessons</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="top-bar">
+    <a class="back-link" href="index.html">&larr; Switch Student</a>
+  </div>
+
+  <div class="hero" style="margin-bottom:20px;">
+    <div class="top-bar" style="justify-content:center;">
+      <span class="who" id="whoHeading"></span>
+    </div>
+  </div>
+
+  <div class="progress-banner">
+    <span class="streak-badge">🔥</span>
+    <div>
+      <strong id="streakText">0 day combo streak</strong>
+      <div class="rank-text" id="rankText">Rookie Trainer 🌱</div>
+    </div>
+    <div class="progress-bar-track">
+      <div class="progress-bar-fill" id="progressFill" style="width:0%"></div>
+    </div>
+    <span class="progress-text" id="progressText">0 / 34 quests complete</span>
+  </div>
+
+  <div class="legend">
+    <span><span class="dot math"></span>⚡ Math (Electric)</span>
+    <span><span class="dot ela"></span>💧 ELA (Water)</span>
+    <span><span class="dot science"></span>🌿 Science (Grass)</span>
+  </div>
+
+  <div class="day-grid" id="dayGrid"></div>
+</div>
+
+<script src="data/luca.js"></script>
+<script src="data/sienna.js"></script>
+<script src="app.js"></script>
+<script>
+  const who = getStudentKey();
+  if (!who) {
+    window.location.href = 'index.html';
+  } else {
+    const lessons = getLessons(who);
+    const progress = loadProgress(who);
+    const today = todayISO();
+
+    document.getElementById('whoHeading').textContent =
+      (who === 'luca' ? '🐉 ' : '🦫 ') + displayName(who) + "'s Quest Log";
+    document.title = displayName(who) + "'s Quest Log";
+
+    const doneCount = Object.values(progress).filter(p => p.done).length;
+    document.getElementById('progressText').textContent = `${doneCount} / ${lessons.length} quests complete`;
+    document.getElementById('progressFill').style.width = `${(doneCount / lessons.length) * 100}%`;
+
+    const RANKS = ['Rookie Trainer 🌱', 'Bronze Trainer 🥉', 'Silver Trainer 🥈', 'Gold Trainer 🥇', 'Champion 🏆'];
+    const rankIdx = Math.min(RANKS.length - 1, Math.floor((doneCount / lessons.length) * RANKS.length));
+    document.getElementById('rankText').textContent = RANKS[rankIdx];
+    document.getElementById('streakText').textContent = `${computeStreak(who)} day combo streak`;
+
+    const grid = document.getElementById('dayGrid');
+    lessons.forEach(lesson => {
+      const info = SUBJECT_INFO[lesson.subject];
+      const isDone = progress[lesson.day] && progress[lesson.day].done;
+      const isToday = lesson.date === today;
+
+      const a = document.createElement('a');
+      a.href = `lesson.html?who=${who}&day=${lesson.day}`;
+      a.className = `day-card ${info.class} ${isDone ? 'done' : ''} ${isToday ? 'today' : ''}`;
+
+      const dateObj = new Date(lesson.date + 'T00:00:00');
+      const dateLabel = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+      a.innerHTML = `
+        ${isToday ? '<span class="today-label">TODAY</span>' : ''}
+        ${isDone ? '<span class="check">✅</span>' : ''}
+        <div class="day-num">Day ${lesson.day} &middot; <span class="day-date">${dateLabel}</span></div>
+        <div class="subj-emoji">${info.emoji}</div>
+        <div class="subj-title">${lesson.title}</div>
+        <span class="level-tag">${lesson.levelLabel}</span>
+      `;
+      grid.appendChild(a);
+    });
+  }
+</script>
+</body>
+</html>

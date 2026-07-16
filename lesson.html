@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="top-bar">
+    <a class="back-link" id="backLink" href="student.html">&larr; Back to My Lessons</a>
+  </div>
+
+  <div class="lesson-header">
+    <span class="subj-pill" id="subjPill"></span>
+    <div class="standard-tag" id="standardTag"></div>
+    <h1 id="lessonTitle"></h1>
+    <div class="hook" id="lessonHook"></div>
+  </div>
+
+  <div class="card">
+    <h2>📖 Let's Review</h2>
+    <ul class="teach-list" id="teachList"></ul>
+    <div class="example-box" id="exampleBox" style="display:none;"></div>
+  </div>
+
+  <div class="card" id="quizCard">
+    <h2>✏️ Quick Quiz</h2>
+    <div id="quizContainer"></div>
+    <div class="btn-row">
+      <button class="btn" id="checkBtn">Check My Answers</button>
+      <span id="quizStatus" style="color:#6b6488; font-size:0.9rem;"></span>
+    </div>
+  </div>
+
+  <div class="result-banner" id="resultBanner" style="display:none;"></div>
+
+  <div class="btn-row" style="margin-top:10px;">
+    <a class="btn secondary" id="prevLink">&larr; Previous Day</a>
+    <a class="btn" id="nextLink">Next Day &rarr;</a>
+  </div>
+</div>
+
+<script src="data/luca.js"></script>
+<script src="data/sienna.js"></script>
+<script src="app.js"></script>
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const who = getStudentKey();
+  const dayNum = parseInt(params.get('day'), 10);
+
+  if (!who || !dayNum) {
+    window.location.href = 'index.html';
+  }
+
+  const lessons = getLessons(who);
+  const lesson = lessons.find(l => l.day === dayNum);
+
+  if (!lesson) {
+    document.querySelector('.wrap').innerHTML = '<p>Lesson not found. <a href="student.html">Go back</a>.</p>';
+  } else {
+    document.title = lesson.title;
+    document.getElementById('backLink').href = `student.html?who=${who}`;
+
+    const info = SUBJECT_INFO[lesson.subject];
+    const pill = document.getElementById('subjPill');
+    pill.textContent = `${info.emoji} ${lesson.subject} (${info.type}) — ${lesson.levelLabel}`;
+    pill.className = `subj-pill ${info.class}`;
+
+    document.getElementById('standardTag').textContent = `Standard: ${lesson.standard} — ${lesson.standardLabel}`;
+    document.getElementById('lessonTitle').textContent = `Day ${lesson.day}: ${lesson.title}`;
+    document.getElementById('lessonHook').textContent = lesson.hook;
+
+    const teachList = document.getElementById('teachList');
+    lesson.teach.forEach(point => {
+      const li = document.createElement('li');
+      li.textContent = point;
+      if (point.startsWith('😂')) li.className = 'fun-bullet';
+      teachList.appendChild(li);
+    });
+
+    if (lesson.example) {
+      const box = document.getElementById('exampleBox');
+      box.style.display = 'block';
+      box.innerHTML = `<strong>Example:</strong> ${lesson.example.problem}<br><br><strong>Solution:</strong> ${lesson.example.solution}`;
+    }
+
+    const quizContainer = document.getElementById('quizContainer');
+    const selections = new Array(lesson.quiz.length).fill(null);
+
+    lesson.quiz.forEach((q, qi) => {
+      const qDiv = document.createElement('div');
+      qDiv.className = 'quiz-q';
+      const p = document.createElement('p');
+      p.className = 'qtext';
+      p.textContent = `${qi + 1}. ${q.q}`;
+      qDiv.appendChild(p);
+
+      q.choices.forEach((choice, ci) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'choice';
+        btn.textContent = choice;
+        btn.addEventListener('click', () => {
+          if (qDiv.classList.contains('locked')) return;
+          selections[qi] = ci;
+          qDiv.querySelectorAll('.choice').forEach(c => c.classList.remove('selected'));
+          btn.classList.add('selected');
+        });
+        qDiv.appendChild(btn);
+      });
+
+      const explain = document.createElement('div');
+      explain.className = 'qexplain';
+      explain.textContent = q.explain;
+      qDiv.appendChild(explain);
+
+      quizContainer.appendChild(qDiv);
+    });
+
+    document.getElementById('checkBtn').addEventListener('click', () => {
+      let correct = 0;
+      const quizDivs = quizContainer.querySelectorAll('.quiz-q');
+      lesson.quiz.forEach((q, qi) => {
+        const qDiv = quizDivs[qi];
+        qDiv.classList.add('locked');
+        const choiceBtns = qDiv.querySelectorAll('.choice');
+        choiceBtns.forEach((btn, ci) => {
+          if (ci === q.answer) btn.classList.add('correct');
+          if (ci === selections[qi] && ci !== q.answer) btn.classList.add('incorrect');
+        });
+        qDiv.querySelector('.qexplain').classList.add('show');
+        if (selections[qi] === q.answer) correct++;
+      });
+
+      const total = lesson.quiz.length;
+      markDayComplete(who, lesson.day, correct, total);
+
+      const GREAT_LINES = [
+        `🌟 LEGENDARY! ${correct}/${total} — you basically just evolved!`,
+        `🏆 Critical hit! ${correct}/${total} correct. Gym badge earned!`,
+        `⚡ It's super effective! ${correct}/${total} — your brain is overpowered.`,
+      ];
+      const OK_LINES = [
+        `👍 Solid! ${correct}/${total} correct. Check the glowing answers above to level up further.`,
+        `🎯 ${correct}/${total} — not bad, trainer! A little more XP and you'll max this out.`,
+        `😅 ${correct}/${total}! Your knowledge is at half HP — peek at the explanations above.`,
+      ];
+      const RETRY_LINES = [
+        `💪 ${correct}/${total} this round. Even champions lose a battle before they train up — re-read and try tomorrow!`,
+        `🔁 ${correct}/${total}. That topic dodged you like a wild Rattata. One more look at the review, then rematch tomorrow!`,
+        `🌱 ${correct}/${total} — every trainer starts somewhere! Reread the tips above and you'll crush it next time.`,
+      ];
+      const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+      const banner = document.getElementById('resultBanner');
+      banner.style.display = 'block';
+      const pct = correct / total;
+      if (pct >= 0.8) {
+        banner.className = 'result-banner great';
+        banner.textContent = pick(GREAT_LINES);
+      } else if (pct >= 0.5) {
+        banner.className = 'result-banner ok';
+        banner.textContent = pick(OK_LINES);
+      } else {
+        banner.className = 'result-banner retry';
+        banner.textContent = pick(RETRY_LINES);
+      }
+      banner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      document.getElementById('checkBtn').disabled = true;
+      document.getElementById('quizStatus').textContent = 'Answers locked in!';
+    });
+
+    const idx = lessons.findIndex(l => l.day === dayNum);
+    const prevBtn = document.getElementById('prevLink');
+    const nextBtn = document.getElementById('nextLink');
+    if (idx > 0) {
+      prevBtn.href = `lesson.html?who=${who}&day=${lessons[idx - 1].day}`;
+    } else {
+      prevBtn.style.visibility = 'hidden';
+    }
+    if (idx < lessons.length - 1) {
+      nextBtn.href = `lesson.html?who=${who}&day=${lessons[idx + 1].day}`;
+    } else {
+      nextBtn.textContent = 'All Done! 🎉';
+      nextBtn.href = `student.html?who=${who}`;
+    }
+  }
+</script>
+</body>
+</html>
