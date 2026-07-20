@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>My Lessons</title>
+<link rel="apple-touch-icon" id="appleTouchIcon" href="icons/icon-index.png">
+<link rel="icon" id="favicon" href="icons/icon-index.png">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -54,6 +56,10 @@
     document.getElementById('whoHeading').textContent =
       (who === 'luca' ? '🐉 ' : '🦫 ') + displayName(who) + "'s Quest Log";
     document.title = displayName(who) + "'s Quest Log";
+
+    const iconHref = `icons/icon-${who}.png`;
+    document.getElementById('appleTouchIcon').setAttribute('href', iconHref);
+    document.getElementById('favicon').setAttribute('href', iconHref);
 
     const doneCount = Object.values(progress).filter(p => p.done).length;
     document.getElementById('progressText').textContent = `${doneCount} / ${lessons.length} quests complete`;

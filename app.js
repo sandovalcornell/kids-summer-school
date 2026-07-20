@@ -35,9 +35,9 @@ function saveProgress(who, progress) {
   localStorage.setItem(progressKey(who), JSON.stringify(progress));
 }
 
-function markDayComplete(who, day, score, total) {
+function markDayComplete(who, day, score, total, selections) {
   const progress = loadProgress(who);
-  progress[day] = { done: true, score, total, completedAt: new Date().toISOString() };
+  progress[day] = { done: true, score, total, selections, completedAt: new Date().toISOString() };
   saveProgress(who, progress);
 }
 

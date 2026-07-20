@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lesson</title>
+<link rel="apple-touch-icon" id="appleTouchIcon" href="icons/icon-index.png">
+<link rel="icon" id="favicon" href="icons/icon-index.png">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -54,6 +56,10 @@
     window.location.href = 'index.html';
   }
 
+  const iconHref = `icons/icon-${who}.png`;
+  document.getElementById('appleTouchIcon').setAttribute('href', iconHref);
+  document.getElementById('favicon').setAttribute('href', iconHref);
+
   const lessons = getLessons(who);
   const lesson = lessons.find(l => l.day === dayNum);
 
@@ -89,6 +95,13 @@
     const quizContainer = document.getElementById('quizContainer');
     const selections = new Array(lesson.quiz.length).fill(null);
 
+    const savedProgress = loadProgress(who)[lesson.day];
+    const hasValidSavedAttempt = !!(savedProgress && savedProgress.done &&
+      Array.isArray(savedProgress.selections) && savedProgress.selections.length === lesson.quiz.length);
+    if (hasValidSavedAttempt) {
+      savedProgress.selections.forEach((v, i) => { selections[i] = v; });
+    }
+
     lesson.quiz.forEach((q, qi) => {
       const qDiv = document.createElement('div');
       qDiv.className = 'quiz-q';
@@ -102,6 +115,9 @@
         btn.type = 'button';
         btn.className = 'choice';
         btn.textContent = choice;
+        if (hasValidSavedAttempt && selections[qi] === ci) {
+          btn.classList.add('selected');
+        }
         btn.addEventListener('click', () => {
           if (qDiv.classList.contains('locked')) return;
           selections[qi] = ci;
@@ -119,7 +135,9 @@
       quizContainer.appendChild(qDiv);
     });
 
-    document.getElementById('checkBtn').addEventListener('click', () => {
+    function gradeQuiz(sels, opts) {
+      const save = opts && opts.save;
+      const scroll = opts && opts.scroll;
       let correct = 0;
       const quizDivs = quizContainer.querySelectorAll('.quiz-q');
       lesson.quiz.forEach((q, qi) => {
@@ -128,14 +146,16 @@
         const choiceBtns = qDiv.querySelectorAll('.choice');
         choiceBtns.forEach((btn, ci) => {
           if (ci === q.answer) btn.classList.add('correct');
-          if (ci === selections[qi] && ci !== q.answer) btn.classList.add('incorrect');
+          if (ci === sels[qi] && ci !== q.answer) btn.classList.add('incorrect');
         });
         qDiv.querySelector('.qexplain').classList.add('show');
-        if (selections[qi] === q.answer) correct++;
+        if (sels[qi] === q.answer) correct++;
       });
 
       const total = lesson.quiz.length;
-      markDayComplete(who, lesson.day, correct, total);
+      if (save) {
+        markDayComplete(who, lesson.day, correct, total, sels);
+      }
 
       const GREAT_LINES = [
         `🌟 LEGENDARY! ${correct}/${total} — you basically just evolved!`,
@@ -167,10 +187,20 @@
         banner.className = 'result-banner retry';
         banner.textContent = pick(RETRY_LINES);
       }
-      banner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (scroll) banner.scrollIntoView({ behavior: 'smooth', block: 'center' });
       document.getElementById('checkBtn').disabled = true;
-      document.getElementById('quizStatus').textContent = 'Answers locked in!';
+      document.getElementById('quizStatus').textContent = save
+        ? 'Answers locked in!'
+        : 'You already completed this lesson — here are your answers.';
+    }
+
+    document.getElementById('checkBtn').addEventListener('click', () => {
+      gradeQuiz(selections, { save: true, scroll: true });
     });
+
+    if (hasValidSavedAttempt) {
+      gradeQuiz(selections, { save: false, scroll: false });
+    }
 
     const idx = lessons.findIndex(l => l.day === dayNum);
     const prevBtn = document.getElementById('prevLink');
