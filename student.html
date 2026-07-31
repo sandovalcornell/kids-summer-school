@@ -31,11 +31,21 @@
     </div>
     <span class="progress-text" id="progressText">0 / 34 quests complete</span>
   </div>
+  <div class="progress-banner" style="margin-top:-10px;">
+    <span class="streak-badge">📜</span>
+    <div><strong>History Minutes</strong></div>
+    <div class="progress-bar-track">
+      <div class="progress-bar-fill" id="historyProgressFill" style="width:0%; background: linear-gradient(90deg, var(--us), var(--mx));"></div>
+    </div>
+    <span class="progress-text" id="historyProgressText">0 / 34 complete</span>
+  </div>
 
   <div class="legend">
     <span><span class="dot math"></span>⚡ Math (Electric)</span>
     <span><span class="dot ela"></span>💧 ELA (Water)</span>
     <span><span class="dot science"></span>🌿 Science (Grass)</span>
+    <span><span class="dot us"></span>🦅 US History</span>
+    <span><span class="dot mx"></span>🌵 Mexico History</span>
   </div>
 
   <div class="day-grid" id="dayGrid"></div>
@@ -43,6 +53,8 @@
 
 <script src="data/luca.js"></script>
 <script src="data/sienna.js"></script>
+<script src="data/luca-history.js"></script>
+<script src="data/sienna-history.js"></script>
 <script src="app.js"></script>
 <script>
   const who = getStudentKey();
@@ -51,6 +63,8 @@
   } else {
     const lessons = getLessons(who);
     const progress = loadProgress(who);
+    const historyLessons = getHistoryLessons(who);
+    const historyProgress = loadHistoryProgress(who);
     const today = todayISO();
 
     document.getElementById('whoHeading').textContent =
@@ -65,6 +79,10 @@
     document.getElementById('progressText').textContent = `${doneCount} / ${lessons.length} quests complete`;
     document.getElementById('progressFill').style.width = `${(doneCount / lessons.length) * 100}%`;
 
+    const historyDoneCount = Object.values(historyProgress).filter(p => p.done).length;
+    document.getElementById('historyProgressText').textContent = `${historyDoneCount} / ${historyLessons.length} complete`;
+    document.getElementById('historyProgressFill').style.width = `${(historyDoneCount / (historyLessons.length || 1)) * 100}%`;
+
     const RANKS = ['Rookie Trainer 🌱', 'Bronze Trainer 🥉', 'Silver Trainer 🥈', 'Gold Trainer 🥇', 'Champion 🏆'];
     const rankIdx = Math.min(RANKS.length - 1, Math.floor((doneCount / lessons.length) * RANKS.length));
     document.getElementById('rankText').textContent = RANKS[rankIdx];
@@ -76,22 +94,50 @@
       const isDone = progress[lesson.day] && progress[lesson.day].done;
       const isToday = lesson.date === today;
 
-      const a = document.createElement('a');
-      a.href = `lesson.html?who=${who}&day=${lesson.day}`;
-      a.className = `day-card ${info.class} ${isDone ? 'done' : ''} ${isToday ? 'today' : ''}`;
+      const histLesson = historyLessons.find(h => h.day === lesson.day);
+      const histInfo = histLesson ? REGION_INFO[histLesson.region] : null;
+      const histDone = histLesson && historyProgress[histLesson.day] && historyProgress[histLesson.day].done;
 
       const dateObj = new Date(lesson.date + 'T00:00:00');
       const dateLabel = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
-      a.innerHTML = `
-        ${isToday ? '<span class="today-label">TODAY</span>' : ''}
-        ${isDone ? '<span class="check">✅</span>' : ''}
-        <div class="day-num">Day ${lesson.day} &middot; <span class="day-date">${dateLabel}</span></div>
-        <div class="subj-emoji">${info.emoji}</div>
-        <div class="subj-title">${lesson.title}</div>
-        <span class="level-tag">${lesson.levelLabel}</span>
+      const group = document.createElement('div');
+      group.className = `day-group ${isToday ? 'today today-label' : ''}`;
+
+      const head = document.createElement('div');
+      head.className = 'group-head';
+      head.innerHTML = `<span class="day-num">Day ${lesson.day} &middot; <span class="day-date">${dateLabel}</span></span>`;
+      group.appendChild(head);
+
+      const mainLink = document.createElement('a');
+      mainLink.href = `lesson.html?who=${who}&day=${lesson.day}`;
+      mainLink.className = `mini-lesson ${info.class} ${isDone ? 'done' : ''}`;
+      mainLink.innerHTML = `
+        <span class="mini-emoji">${info.emoji}</span>
+        <span class="mini-text">
+          <div class="mini-title">${lesson.title}</div>
+          <div class="mini-sub">${lesson.subject}</div>
+        </span>
+        ${isDone ? '<span class="mini-check">✅</span>' : ''}
       `;
-      grid.appendChild(a);
+      group.appendChild(mainLink);
+
+      if (histLesson) {
+        const histLink = document.createElement('a');
+        histLink.href = `history.html?who=${who}&day=${histLesson.day}`;
+        histLink.className = `mini-lesson ${histInfo.class} ${histDone ? 'done' : ''}`;
+        histLink.innerHTML = `
+          <span class="mini-emoji">${histInfo.emoji}</span>
+          <span class="mini-text">
+            <div class="mini-title">${histLesson.title}</div>
+            <div class="mini-sub">${histInfo.label}</div>
+          </span>
+          ${histDone ? '<span class="mini-check">✅</span>' : ''}
+        `;
+        group.appendChild(histLink);
+      }
+
+      grid.appendChild(group);
     });
   }
 </script>

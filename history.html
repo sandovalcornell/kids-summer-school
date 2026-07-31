@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>History Minute</title>
+<link rel="apple-touch-icon" id="appleTouchIcon" href="icons/icon-index.png">
+<link rel="icon" id="favicon" href="icons/icon-index.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="top-bar">
+    <a class="back-link" id="backLink" href="student.html">&larr; Back to My Lessons</a>
+  </div>
+
+  <div class="lesson-header">
+    <span class="subj-pill" id="regionPill"></span>
+    <div class="standard-tag" id="eraTag"></div>
+    <h1 id="lessonTitle"></h1>
+    <div class="hook" id="lessonHook"></div>
+  </div>
+
+  <div class="card">
+    <h2>📜 Let's Read</h2>
+    <div id="passageContainer"></div>
+    <div class="example-box soundbite-box" id="soundbiteBox" style="display:none;"></div>
+  </div>
+
+  <div class="card" id="quizCard">
+    <h2>✏️ Quick Check</h2>
+    <div id="quizContainer"></div>
+    <div class="btn-row">
+      <button class="btn" id="checkBtn">Check My Answers</button>
+      <span id="quizStatus" style="color:#6b6488; font-size:0.9rem;"></span>
+    </div>
+  </div>
+
+  <div class="result-banner" id="resultBanner" style="display:none;"></div>
+
+  <div class="btn-row" style="margin-top:10px;">
+    <a class="btn secondary" id="prevLink">&larr; Previous</a>
+    <a class="btn" id="nextLink">Next &rarr;</a>
+  </div>
+</div>
+
+<script src="data/luca-history.js"></script>
+<script src="data/sienna-history.js"></script>
+<script src="app.js"></script>
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const who = getStudentKey();
+  const dayNum = parseInt(params.get('day'), 10);
+
+  if (!who || !dayNum) {
+    window.location.href = 'index.html';
+  }
+
+  const iconHref = `icons/icon-${who}.png`;
+  document.getElementById('appleTouchIcon').setAttribute('href', iconHref);
+  document.getElementById('favicon').setAttribute('href', iconHref);
+
+  const lessons = getHistoryLessons(who);
+  const lesson = lessons.find(l => l.day === dayNum);
+
+  if (!lesson) {
+    document.querySelector('.wrap').innerHTML = '<p>History lesson not found. <a href="student.html">Go back</a>.</p>';
+  } else {
+    document.title = lesson.title;
+    document.getElementById('backLink').href = `student.html?who=${who}`;
+
+    const info = REGION_INFO[lesson.region];
+    const pill = document.getElementById('regionPill');
+    pill.textContent = `${info.emoji} ${info.label}`;
+    pill.className = `subj-pill ${info.class}`;
+
+    document.getElementById('eraTag').textContent = lesson.era;
+    document.getElementById('lessonTitle').textContent = `Day ${lesson.day}: ${lesson.title}`;
+    document.getElementById('lessonHook').textContent = lesson.hook;
+
+    const passageContainer = document.getElementById('passageContainer');
+    lesson.passage.forEach(paragraph => {
+      const p = document.createElement('p');
+      p.textContent = paragraph;
+      p.style.marginBottom = '14px';
+      p.style.lineHeight = '1.6';
+      passageContainer.appendChild(p);
+    });
+
+    if (lesson.soundbite) {
+      const box = document.getElementById('soundbiteBox');
+      box.style.display = 'block';
+      box.innerHTML = `<strong>🎤 Must-Know Soundbite:</strong> ${lesson.soundbite}`;
+    }
+
+    const quizContainer = document.getElementById('quizContainer');
+    const selections = new Array(lesson.quiz.length).fill(null);
+
+    const savedProgress = loadHistoryProgress(who)[lesson.day];
+    const hasValidSavedAttempt = !!(savedProgress && savedProgress.done &&
+      Array.isArray(savedProgress.selections) && savedProgress.selections.length === lesson.quiz.length);
+    if (hasValidSavedAttempt) {
+      savedProgress.selections.forEach((v, i) => { selections[i] = v; });
+    }
+
+    lesson.quiz.forEach((q, qi) => {
+      const qDiv = document.createElement('div');
+      qDiv.className = 'quiz-q';
+      const p = document.createElement('p');
+      p.className = 'qtext';
+      p.textContent = `${qi + 1}. ${q.q}`;
+      qDiv.appendChild(p);
+
+      q.choices.forEach((choice, ci) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'choice';
+        btn.textContent = choice;
+        if (hasValidSavedAttempt && selections[qi] === ci) {
+          btn.classList.add('selected');
+        }
+        btn.addEventListener('click', () => {
+          if (qDiv.classList.contains('locked')) return;
+          selections[qi] = ci;
+          qDiv.querySelectorAll('.choice').forEach(c => c.classList.remove('selected'));
+          btn.classList.add('selected');
+        });
+        qDiv.appendChild(btn);
+      });
+
+      const explain = document.createElement('div');
+      explain.className = 'qexplain';
+      explain.textContent = q.explain;
+      qDiv.appendChild(explain);
+
+      quizContainer.appendChild(qDiv);
+    });
+
+    function gradeQuiz(sels, opts) {
+      const save = opts && opts.save;
+      const scroll = opts && opts.scroll;
+      let correct = 0;
+      const quizDivs = quizContainer.querySelectorAll('.quiz-q');
+      lesson.quiz.forEach((q, qi) => {
+        const qDiv = quizDivs[qi];
+        qDiv.classList.add('locked');
+        const choiceBtns = qDiv.querySelectorAll('.choice');
+        choiceBtns.forEach((btn, ci) => {
+          if (ci === q.answer) btn.classList.add('correct');
+          if (ci === sels[qi] && ci !== q.answer) btn.classList.add('incorrect');
+        });
+        qDiv.querySelector('.qexplain').classList.add('show');
+        if (sels[qi] === q.answer) correct++;
+      });
+
+      const total = lesson.quiz.length;
+      if (save) {
+        markHistoryDayComplete(who, lesson.day, correct, total, sels);
+      }
+
+      const GREAT_LINES = [
+        `🌟 History whiz! ${correct}/${total} — you'll ace trivia night someday!`,
+        `🏆 ${correct}/${total} correct. You've basically got a time machine in your brain.`,
+        `⚡ ${correct}/${total} — you soaked that story right up!`,
+      ];
+      const OK_LINES = [
+        `👍 Solid! ${correct}/${total} correct. Peek at the highlighted answers above to fill in the gaps.`,
+        `🎯 ${correct}/${total} — good effort! A re-read will lock in the rest.`,
+        `😅 ${correct}/${total}! History's tricky — check the explanations above.`,
+      ];
+      const RETRY_LINES = [
+        `💪 ${correct}/${total} this round. Even historians re-read their notes — try again tomorrow!`,
+        `🔁 ${correct}/${total}. Give the passage another read before the next History Minute.`,
+        `🌱 ${correct}/${total} — every historian starts somewhere. You'll get the next one!`,
+      ];
+      const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+      const banner = document.getElementById('resultBanner');
+      banner.style.display = 'block';
+      const pct = correct / total;
+      if (pct >= 0.8) {
+        banner.className = 'result-banner great';
+        banner.textContent = pick(GREAT_LINES);
+      } else if (pct >= 0.5) {
+        banner.className = 'result-banner ok';
+        banner.textContent = pick(OK_LINES);
+      } else {
+        banner.className = 'result-banner retry';
+        banner.textContent = pick(RETRY_LINES);
+      }
+      if (scroll) banner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      document.getElementById('checkBtn').disabled = true;
+      document.getElementById('quizStatus').textContent = save
+        ? 'Answers locked in!'
+        : 'You already completed this one — here are your answers.';
+    }
+
+    document.getElementById('checkBtn').addEventListener('click', () => {
+      gradeQuiz(selections, { save: true, scroll: true });
+    });
+
+    if (hasValidSavedAttempt) {
+      gradeQuiz(selections, { save: false, scroll: false });
+    }
+
+    const idx = lessons.findIndex(l => l.day === dayNum);
+    const prevBtn = document.getElementById('prevLink');
+    const nextBtn = document.getElementById('nextLink');
+    if (idx > 0) {
+      prevBtn.href = `history.html?who=${who}&day=${lessons[idx - 1].day}`;
+    } else {
+      prevBtn.style.visibility = 'hidden';
+    }
+    if (idx < lessons.length - 1) {
+      nextBtn.href = `history.html?who=${who}&day=${lessons[idx + 1].day}`;
+    } else {
+      nextBtn.textContent = 'All Done! 🎉';
+      nextBtn.href = `student.html?who=${who}`;
+    }
+  }
+</script>
+</body>
+</html>

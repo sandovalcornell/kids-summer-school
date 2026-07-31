@@ -18,6 +18,17 @@ function getLessons(who) {
   return [];
 }
 
+const REGION_INFO = {
+  US: { emoji: '🦅', class: 'us', label: 'US History' },
+  Mexico: { emoji: '🌵', class: 'mx', label: 'Mexico History' },
+};
+
+function getHistoryLessons(who) {
+  if (who === 'luca') return window.LUCA_HISTORY || [];
+  if (who === 'sienna') return window.SIENNA_HISTORY || [];
+  return [];
+}
+
 function progressKey(who) {
   return `sll_progress_${who}`;
 }
@@ -39,6 +50,29 @@ function markDayComplete(who, day, score, total, selections) {
   const progress = loadProgress(who);
   progress[day] = { done: true, score, total, selections, completedAt: new Date().toISOString() };
   saveProgress(who, progress);
+}
+
+function historyProgressKey(who) {
+  return `sll_history_progress_${who}`;
+}
+
+function loadHistoryProgress(who) {
+  try {
+    const raw = localStorage.getItem(historyProgressKey(who));
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function saveHistoryProgress(who, progress) {
+  localStorage.setItem(historyProgressKey(who), JSON.stringify(progress));
+}
+
+function markHistoryDayComplete(who, day, score, total, selections) {
+  const progress = loadHistoryProgress(who);
+  progress[day] = { done: true, score, total, selections, completedAt: new Date().toISOString() };
+  saveHistoryProgress(who, progress);
 }
 
 function todayISO() {
